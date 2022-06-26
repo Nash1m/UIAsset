@@ -21,8 +21,8 @@ namespace Nash1m.UI.Animator
         public void UpdateTween(float time, UIAnimator animator, TweenNode tweenNode)
         {
             var binding = animator.GetBindingByKey(BindingKey);
-            if (binding is {} && binding.bindObject.image)
-                binding.bindObject.image.color = Color.Lerp(startColor, endColor, time);
+            if (binding is {} && binding.bindObject.graphic)
+                binding.bindObject.graphic.color = Color.Lerp(startColor, endColor, time);
         }
 
         public void Draw()

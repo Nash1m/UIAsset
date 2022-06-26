@@ -24,6 +24,8 @@ namespace Nash1m.UI.Editor
         #endregion
 
         private Vector2 _scroll;
+        
+        //TODO: Make auto expand
         private Vector2 _expandView = new Vector2(1000, 100);
 
         private float zoom = 20f;
@@ -31,7 +33,6 @@ namespace Nash1m.UI.Editor
 
 
         public float currentTime;
-        public bool timeReversed;
         public bool canClickTimeline;
 
         private int timeFactorIndex = 1;
@@ -41,8 +42,6 @@ namespace Nash1m.UI.Editor
         public void DrawTimeline(Rect rect)
         {
             var ticksRect = new Rect(rect.x, rect.y, rect.width - 15, 20);
-            //Add events rect
-
             DrawTicks(ticksRect);
 
             _scroll = GUI.BeginScrollView(
@@ -66,26 +65,29 @@ namespace Nash1m.UI.Editor
                 EditorStyles.toolbar.Draw(ticksRect, GUIContent.none, 0);
             }
 
-            var count = 0;
-            for (var i = ticksRect.x - _scroll.x; i < ticksRect.width + ticksRect.x; i += zoom * _zoomFactor)
+            var startX = ticksRect.x - _scroll.x;
+            var length = ticksRect.width + ticksRect.x;
+            var step = zoom * _zoomFactor;
+            var ticksCount = 0;
+            for (var i = startX; i < length; i += step)
             {
                 if (i < ticksRect.x)
                 {
-                    count++;
+                    ticksCount++;
                     continue;
                 }
 
-                if (count % 5 == 0)
+                if (ticksCount % 5 == 0)
                 {
                     Handles.color = new Color(0.7f, 0.7f, 0.7f);
                     Handles.DrawLine(new Vector3(i, 20, 0), new Vector3(i, 5, 0));
 
                     if (i < ticksRect.width + ticksRect.x - 30)
                     {
-                        var displayMinutes = Mathf.FloorToInt((count / 5.0f) * timeFactors[timeFactorIndex] / 60.0f);
-                        var displaySeconds = Mathf.FloorToInt((count / 5.0f) * timeFactors[timeFactorIndex] % 60.0f);
+                        var displayMinutes = Mathf.FloorToInt((ticksCount / 5.0f) * timeFactors[timeFactorIndex] / 60.0f);
+                        var displaySeconds = Mathf.FloorToInt((ticksCount / 5.0f) * timeFactors[timeFactorIndex] % 60.0f);
                         var content = new GUIContent($"{displayMinutes:0}:{displaySeconds:00}");
-                        var size = ((GUIStyle) "Label").CalcSize(content);
+                        var size = ((GUIStyle)"Label").CalcSize(content);
                         size.x = Mathf.Clamp(size.x, 0.0f, ticksRect.width - i);
 
                         GUI.Label(new Rect(i, -3, 60, 20), content);
@@ -97,7 +99,7 @@ namespace Nash1m.UI.Editor
                     Handles.DrawLine(new Vector3(i, 20, 0), new Vector3(i, 15, 0));
                 }
 
-                count++;
+                ticksCount++;
             }
         }
 
@@ -142,6 +144,7 @@ namespace Nash1m.UI.Editor
                     e.Use();
                     break;
                 case EventType.ScrollWheel:
+                    //TODO: Rewrite zoom
                     zoom -= e.delta.y;
                     zoom = Mathf.Clamp(zoom, 10, 100);
                     if (Math.Abs(zoom - 10) < 0.1f || Math.Abs(zoom - 100) < 0.1f)

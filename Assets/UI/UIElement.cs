@@ -7,6 +7,10 @@ namespace Nash1m.UI
     {
         public UIAnimator animator;
 
+        private void Start()
+        {
+            animator ??= GetComponent<UIAnimator>();
+        }
         public void SetActive(bool value)
         {
             animator ??= GetComponent<UIAnimator>();
@@ -26,6 +30,10 @@ namespace Nash1m.UI
             }
             else
                 gameObject.SetActive(value);
+            
+            OnActiveChanged(value);
         }
+
+        protected virtual void OnActiveChanged(bool value){}
     }
 }

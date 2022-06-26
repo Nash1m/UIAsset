@@ -12,7 +12,6 @@ namespace Nash1m.UI.Animator
 
         public AnimationType animationType;
 
-        //List of tween nodes
         public List<TweenNode> tweenNodes = new List<TweenNode>();
 
         public float Duration => tweenNodes.Count > 0 ? tweenNodes.Max(x => x.endTime) : 0;
@@ -22,7 +21,8 @@ namespace Nash1m.UI.Animator
             foreach (var tweenNode in tweenNodes)
             {
                 var current = animationTime - tweenNode.startTime;
-                tweenNode.tween.UpdateTween(current.Normalized(tweenNode.startTime, tweenNode.endTime), animator, tweenNode);
+                var normalizedTime = current.Normalized(tweenNode.startTime, tweenNode.endTime);
+                tweenNode.tween.UpdateTween(normalizedTime, animator, tweenNode);
             }
 
             if (animationTime >= Duration && animationType == AnimationType.Single)

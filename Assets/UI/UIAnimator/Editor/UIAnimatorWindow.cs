@@ -113,7 +113,6 @@ namespace Nash1m.UI.Editor
 
                 _animator = selectionAnimator;
             }
-            
             if (!_animator)
             {
                 _preview = false;
@@ -134,7 +133,7 @@ namespace Nash1m.UI.Editor
                 Repaint();
             }
 
-            if (_preview)
+            if (_preview && !Application.isPlaying)
                 BackupObject();
             else
                 UndoObject();
@@ -544,6 +543,7 @@ namespace Nash1m.UI.Editor
         {
             CurrentAnimator.animations.Add(new UIAnimation
                 {animator = CurrentAnimator, key = $"New Animation {CurrentAnimator.animations.Count}"});
+            selectedAnimationIndex = CurrentAnimator.animations.Count - 1;
             _selectedTweenNodeIndex = -1;
             EditorUtility.SetDirty(CurrentAnimator);
         }

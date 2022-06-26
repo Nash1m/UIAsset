@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,22 +6,21 @@ namespace Nash1m.UI.ScreenManager
     public class ScreenManager : MonoBehaviour
     {
         public List<Screen> screens;
-        public Screen firstScreen;
+        public Screen defaultScreen;
         
         private Screen _currentScreen;
         
         private void Start()
         {
-            if(firstScreen)
-                Show(firstScreen);
+            if(defaultScreen)
+                Show(defaultScreen);
         }
-
         
 
         public void Show(Screen screen)
         {
-            screen.SetActive(true);
             _currentScreen = screen;
+            _currentScreen.SetActive(true);
         }
         public void Show<T>() where T: Screen
         {
@@ -42,7 +40,7 @@ namespace Nash1m.UI.ScreenManager
         {
             Hide(_currentScreen);
 
-            if (_currentScreen is { })
+            if (_currentScreen.animator is { })
                 _currentScreen.animator.onAnimationEnd += OnAnimationEnd;
             else
                 Show(screen);
@@ -50,8 +48,8 @@ namespace Nash1m.UI.ScreenManager
 
             void OnAnimationEnd()
             {
-                Show(screen);
                 _currentScreen.animator.onAnimationEnd -= OnAnimationEnd;
+                Show(screen);
             }
         }
         
