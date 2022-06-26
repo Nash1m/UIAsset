@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Nash1m.UI.Animator;
 using UnityEditor;
@@ -12,20 +13,22 @@ namespace Nash1m.UI.Editor
         private UIAnimator _animator;
         private UIAnimator _backup;
 
-        private int selectedAnimationIndex = 0;
+        private int selectedAnimationIndex;
         private int _selectedTweenNodeIndex = -1;
         private string _lastBindingKey;
 
         private Timeline _timeline;
 
         #region Widnow Rects
+
         private Rect _animationsListRect;
         private Rect _editorRect;
         private Rect _inspectorRect;
+
         #endregion
 
         private float _playStartTime;
-        private bool _isPlaying = false;
+        private bool _isPlaying;
         private bool _preview;
         private float clickTime;
         private Vector3 createNodePosition;
@@ -44,6 +47,13 @@ namespace Nash1m.UI.Editor
                 ? null
                 : CurrentAnimator.animations[selectedAnimationIndex];
 
+        #region Lock
+
+        [NonSerialized] private GUIStyle lockButtonStyle;
+        [NonSerialized] private bool locked;
+
+        #endregion
+
 
         [MenuItem("Nash1m/UI Animator")]
         public static void Init()
@@ -60,10 +70,12 @@ namespace Nash1m.UI.Editor
             _timeline.TimelineTitle = OnDrawTimelineTitle;
             _timeline.TimelineClick = OnCurrentTimeChanged;
 
+            EditorApplication.playModeStateChanged += OnPlayModeChanged;
 
             #region Get all tween names
+
             var type = typeof(ITween);
-            _availableTween = System.AppDomain.CurrentDomain.GetAssemblies()
+            _availableTween = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(s => s.GetTypes())
                 .Where(p => type.IsAssignableFrom(p) && !p.IsInterface)
                 .Select(x => $"{x.Namespace}.{x.Name}").ToArray();
@@ -78,19 +90,30 @@ namespace Nash1m.UI.Editor
             #endregion
         }
 
+        private void OnDisable()
+        {
+            EditorApplication.playModeStateChanged -= OnPlayModeChanged;
+
+            UndoObject();
+        }
+
         private void Update()
         {
-            if (!Selection.activeGameObject)
+            if(!locked)
             {
-                _animator = null;
-                return;
+                if (!Selection.activeGameObject)
+                {
+                    _animator = null;
+                    return;
+                }
+
+                var selectionAnimator = Selection.activeGameObject.GetComponent<UIAnimator>();
+                if (_animator != selectionAnimator)
+                    UndoObject();
+
+                _animator = selectionAnimator;
             }
-
-            var selectionAnimator = Selection.activeGameObject.GetComponent<UIAnimator>();
-            if (_animator != selectionAnimator)
-                UndoObject();
-
-            _animator = selectionAnimator;
+            
             if (!_animator)
             {
                 _preview = false;
@@ -106,21 +129,23 @@ namespace Nash1m.UI.Editor
             {
                 _selectedTweenNodeIndex = -1;
                 selectedAnimationIndex = _animator.animations.IndexOf(_animator.CurrentAnimation);
-                _timeline.currentTime = _animator.CurrentTime;
+                var animationTime = UIAnimator.GetAnimationTime(_animator.CurrentTime, selectedAnimation);
+                _timeline.currentTime = animationTime;
                 Repaint();
-            }
-            
-            if(_isPlaying)
-            {
-                UIAnimator.FlowTime(ref _timeline.currentTime, ref _timeline.timeReversed, selectedAnimation);
-                _timeline.currentTime = (float)EditorApplication.timeSinceStartup - _playStartTime;
-                OnCurrentTimeChanged(_timeline.currentTime);
             }
 
             if (_preview)
                 BackupObject();
             else
                 UndoObject();
+
+            if (_isPlaying)
+            {
+                var currentTime = (float) EditorApplication.timeSinceStartup - _playStartTime;
+                var animationTime = UIAnimator.GetAnimationTime(currentTime, selectedAnimation);
+                _timeline.currentTime = animationTime;
+                OnCurrentTimeChanged(animationTime);
+            }
         }
 
         private void OnGUI()
@@ -160,7 +185,6 @@ namespace Nash1m.UI.Editor
         }
 
         #region Draw Methods
-
         private void DrawAnimations()
         {
             GUILayout.BeginVertical();
@@ -181,9 +205,11 @@ namespace Nash1m.UI.Editor
                 {
                     _preview = !_preview;
                 }
+
+                
                 _timeline.currentTime = EditorGUILayout.FloatField(_timeline.currentTime);
                 GUILayout.EndHorizontal();
-                
+
                 GUILayout.BeginHorizontal();
 
                 if (EditorGIUExtensions.ImagedButton("Assets/UI/UIAnimator/Icons/To_Start.png"))
@@ -191,41 +217,50 @@ namespace Nash1m.UI.Editor
                     _timeline.currentTime = 0;
                     OnCurrentTimeChanged(_timeline.currentTime);
                 }
+
                 if (EditorGIUExtensions.ImagedButton("Assets/UI/UIAnimator/Icons/Previous_Second.png"))
                 {
                     _timeline.currentTime--;
                     _timeline.currentTime = Mathf.Clamp(_timeline.currentTime, 0, float.MaxValue);
                     OnCurrentTimeChanged(_timeline.currentTime);
                 }
-                if (EditorGIUExtensions.ImagedButton(!_isPlaying? "Assets/UI/UIAnimator/Icons/Play_Off.png": "Assets/UI/UIAnimator/Icons/Play_On.png"))
+
+                if (EditorGIUExtensions.ImagedButton(!_isPlaying
+                    ? "Assets/UI/UIAnimator/Icons/Play_Off.png"
+                    : "Assets/UI/UIAnimator/Icons/Play_On.png"))
                 {
                     _isPlaying = !_isPlaying;
                     _preview = _isPlaying;
-                    _playStartTime = (float)EditorApplication.timeSinceStartup;
+                    _playStartTime = (float) EditorApplication.timeSinceStartup;
                 }
+
                 if (EditorGIUExtensions.ImagedButton("Assets/UI/UIAnimator/Icons/Next_Second.png"))
                 {
                     _timeline.currentTime++;
                     _timeline.currentTime = Mathf.Clamp(_timeline.currentTime, 0, float.MaxValue);
                     OnCurrentTimeChanged(_timeline.currentTime);
                 }
+
                 if (EditorGIUExtensions.ImagedButton("Assets/UI/UIAnimator/Icons/To_End.png"))
                 {
                     _timeline.currentTime = selectedAnimation.Duration;
                     OnCurrentTimeChanged(_timeline.currentTime);
                 }
+
                 GUILayout.EndHorizontal();
             }
+
             void DrawAnimationsDropdown()
             {
-                if (!EditorGUILayout.DropdownButton(new GUIContent(selectedAnimation.key), FocusType.Passive)) return;
+                if (!EditorGUILayout.DropdownButton(selectedAnimation is {} ?new GUIContent(selectedAnimation.key): new GUIContent($"Animations list"), FocusType.Passive)) return;
 
                 var menu = new GenericMenu();
                 for (var i = 0; i < CurrentAnimator.animations.Count; i++)
                 {
                     var index = i;
                     var animation = CurrentAnimator.animations[index];
-                    menu.AddItem(new GUIContent(animation.key), selectedAnimation.key == animation.key,
+                    var isCurrent = selectedAnimation is { } && selectedAnimation.key == animation.key;
+                    menu.AddItem(new GUIContent(animation.key), isCurrent,
                         () =>
                         {
                             _selectedTweenNodeIndex = -1;
@@ -238,6 +273,7 @@ namespace Nash1m.UI.Editor
 
                 menu.DropDown(new Rect(4, 42, 0, 0));
             }
+
             void DrawAnimationInfo(UIAnimation animation)
             {
                 #region Animation Key
@@ -249,7 +285,7 @@ namespace Nash1m.UI.Editor
 
                 #endregion
 
-                var animationTypes = System.Enum.GetNames(typeof(AnimationType));
+                var animationTypes = Enum.GetNames(typeof(AnimationType));
                 selectedAnimation.animationType =
                     (AnimationType) EditorGUILayout.Popup("Animation Type", (int) selectedAnimation.animationType,
                         animationTypes);
@@ -257,7 +293,6 @@ namespace Nash1m.UI.Editor
                 GUILayout.Label($"Duration: {animation.Duration}");
             }
         }
-
         private void DrawInspector()
         {
             if (selectedAnimation == null) return;
@@ -318,7 +353,6 @@ namespace Nash1m.UI.Editor
 
             selectedTween.tween.Draw();
         }
-
         private void DrawTweenNodes(Rect rect)
         {
             if (selectedAnimation == null) return;
@@ -344,7 +378,6 @@ namespace Nash1m.UI.Editor
                     new Rect(_timeline.SecondsToGUI(node.startTime), node.channel * 20,
                         _timeline.SecondsToGUI(node.endTime - node.startTime), 20), MouseCursor.Pan);
             }
-
             void DrawNode(TweenNode node)
             {
                 var startPoint = _timeline.SecondsToGUI(node.startTime);
@@ -354,23 +387,12 @@ namespace Nash1m.UI.Editor
                 GUI.color = node.nodeColor;
                 GUI.Box(nodeRect, $"{node.tween.BindingKey} [{node.tween.GetType().Name}]");
                 GUI.color = Color.white;
-
-                if (_selectedTweenNodeIndex < 0) return;
-                if (selectedAnimation.tweenNodes[_selectedTweenNodeIndex] == node && nodeRect.width > 20)
-                {
-                    var removeButtonRect = new Rect(nodeRect.x + nodeRect.width - 20, nodeRect.y, 20, 20);
-                    if (GUI.Button(new Rect(removeButtonRect), "X"))
-                    {
-                        _selectedTweenNodeIndex--;
-                        selectedAnimation.tweenNodes.Remove(node);
-                    }
-                }
             }
         }
-
         private void OnDrawTimelineTitle()
         {
-            var content = new GUIContent($"[{selectedAnimation.key}]");
+            var content = selectedAnimation is { } ? new GUIContent($"[{selectedAnimation.key}]") : new GUIContent("");
+
             var style = skin.GetStyle("TimelineTitle");
             var size = style.CalcSize(content);
 
@@ -380,11 +402,9 @@ namespace Nash1m.UI.Editor
             var titleRect = new Rect(xPosition, yPosition, size.x, size.y);
             GUI.Label(titleRect, content, style);
         }
-
         #endregion
 
         #region Events
-
         private void ProcessNodeEvents()
         {
             var e = Event.current;
@@ -467,7 +487,6 @@ namespace Nash1m.UI.Editor
                 Repaint();
             }
         }
-
         private void ProcessEditorEvents()
         {
             var e = Event.current;
@@ -482,6 +501,13 @@ namespace Nash1m.UI.Editor
                 case EventType.DragExited:
                     e.Use();
                     break;
+                case EventType.KeyDown:
+                    if (e.keyCode == KeyCode.Delete)
+                    {
+                        DeleteSelectedNode();
+                        e.Use();
+                    }
+                    break;
             }
 
             void DragUpdateEvent()
@@ -492,7 +518,6 @@ namespace Nash1m.UI.Editor
 
                 e.Use();
             }
-
             void DragPerformedEvent()
             {
                 if (!_editorRect.Contains(e.mousePosition)) return;
@@ -512,28 +537,25 @@ namespace Nash1m.UI.Editor
                 e.Use();
             }
         }
-
         #endregion
 
         #region Add Methods
-
         private void AddAnimation()
         {
-            CurrentAnimator.animations.Add(new UIAnimation()
+            CurrentAnimator.animations.Add(new UIAnimation
                 {animator = CurrentAnimator, key = $"New Animation {CurrentAnimator.animations.Count}"});
             _selectedTweenNodeIndex = -1;
             EditorUtility.SetDirty(CurrentAnimator);
         }
-
         private void AddTween(object userData)
         {
             //Find type of the selected tween
-            var type = System.AppDomain.CurrentDomain.GetAssemblies()
+            var type = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(x => x.GetTypes())
                 .FirstOrDefault(x => x.FullName == (string) userData);
-            if (type == null) throw new System.Exception($"Type with name {(string) userData} not found");
+            if (type == null) throw new Exception($"Type with name {(string) userData} not found");
 
-            var tween = (ITween) System.Activator.CreateInstance(type); //Create instance of tween
+            var tween = (ITween) Activator.CreateInstance(type); //Create instance of tween
             tween.BindingKey = _lastBindingKey; //Set Binding Key
 
             var channel =
@@ -554,10 +576,16 @@ namespace Nash1m.UI.Editor
             EditorUtility.SetDirty(CurrentAnimator);
         }
 
+        private void DeleteSelectedNode()
+        {
+            if(_selectedTweenNodeIndex < 0) return;
+            
+            selectedAnimation.tweenNodes.RemoveAt(_selectedTweenNodeIndex);
+            _selectedTweenNodeIndex--;
+        }
         #endregion
 
         #region Preview
-
         private void BackupObject()
         {
             if (_backup) return;
@@ -568,7 +596,6 @@ namespace Nash1m.UI.Editor
             _animator.gameObject.SetActive(false);
             _animator.gameObject.hideFlags = HideFlags.HideInHierarchy;
         }
-
         private void UndoObject()
         {
             if (!_backup) return;
@@ -577,7 +604,6 @@ namespace Nash1m.UI.Editor
             _animator.gameObject.SetActive(true);
             _animator.gameObject.hideFlags = HideFlags.None;
         }
-
         #endregion
 
         private void OnCurrentTimeChanged(float time)
@@ -588,12 +614,23 @@ namespace Nash1m.UI.Editor
             time = Mathf.Clamp(time, 0, selectedAnimation.Duration);
             selectedAnimation.UpdateAnimation(time);
         }
+        private void OnPlayModeChanged(PlayModeStateChange obj)
+        {
+            UndoObject();
+        }
+
 
         private Rect NodeRect(TweenNode node)
         {
             var startX = _timeline.SecondsToGUI(node.startTime);
             var width = _timeline.SecondsToGUI(node.endTime - node.startTime);
             return new Rect(startX, node.channel * 20, width, 20);
+        }
+
+        public void ShowButton(Rect rect)
+        {
+            lockButtonStyle ??= "IN LockButton";
+            locked = GUI.Toggle(rect, locked, GUIContent.none, lockButtonStyle);
         }
     }
 

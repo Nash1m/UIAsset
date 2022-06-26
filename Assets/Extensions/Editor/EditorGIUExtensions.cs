@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
@@ -10,6 +8,6 @@ public static class EditorGIUExtensions
         style ??= GUI.skin.button;
 
         var texture = (Texture2D)AssetDatabase.LoadMainAssetAtPath(path);
-        return GUILayout.Button(texture,  style, options);
+        return GUILayout.Button(texture, style, options);
     }
 }

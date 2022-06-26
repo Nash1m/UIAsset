@@ -1,4 +1,5 @@
 using System;
+using Nash1m.Extensions;
 using UnityEditor;
 using UnityEngine;
 
@@ -36,6 +37,7 @@ namespace Nash1m.UI.Editor
         private int timeFactorIndex = 1;
         private readonly float[] timeFactors = new[] {1f, 5f, 10f, 15f, 30f, 60f, 120f, 240f};
 
+        
         public void DrawTimeline(Rect rect)
         {
             var ticksRect = new Rect(rect.x, rect.y, rect.width - 15, 20);
@@ -118,6 +120,7 @@ namespace Nash1m.UI.Editor
             Handles.color = Color.white;
         }
 
+        private int count = 0;
         private void ProcessEvents(Rect rect)
         {
             if (!canClickTimeline) return;
@@ -152,7 +155,6 @@ namespace Nash1m.UI.Editor
                     break;
             }
         }
-
         #region Helpers
 
         public float SecondsToGUI(float seconds)

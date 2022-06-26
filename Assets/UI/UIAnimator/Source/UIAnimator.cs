@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Nash1m.Extensions;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -17,7 +18,6 @@ namespace Nash1m.UI.Animator
 
         private bool _isPlaying = false;
         private UIAnimation _currentAnimation;
-        private bool _timeReversed = false;
         private float _time = 0;
 
         public bool IsPlaying => _isPlaying;
@@ -28,9 +28,14 @@ namespace Nash1m.UI.Animator
         {
             if (!_isPlaying) return;
 
-            FlowTime(ref _time,ref _timeReversed, _currentAnimation);
+            _time += Time.deltaTime;
+            UpdateAnimation();
+        }
 
-            _currentAnimation.UpdateAnimation(_time);
+        private void UpdateAnimation()
+        {
+            var animationTime = GetAnimationTime(_time, _currentAnimation);
+            _currentAnimation.UpdateAnimation(animationTime);
         }
 
         public void OnCurrentAnimationEnd()
@@ -47,8 +52,8 @@ namespace Nash1m.UI.Animator
 
             onAnimationEnd = null;
             _currentAnimation = animationByKey;
-            _timeReversed = false;
             _time = 0;
+            UpdateAnimation();
             _isPlaying = true;
         }
         public void Stop(string animationKey)
@@ -83,22 +88,17 @@ namespace Nash1m.UI.Animator
             return binding;
         }
 
-        public static void FlowTime(ref float time, ref bool reverseTime, UIAnimation animation)
+        public static float GetAnimationTime(float _time, UIAnimation animation)
         {
-            time += Time.deltaTime * (reverseTime ? -1 : 1);
-            
+            var animationTime = _time;
             if (animation.animationType == AnimationType.PingPong)
-            {
-                if (time >= animation.Duration && !reverseTime)
-                    reverseTime = true;
-                else if (time <= 0 && reverseTime)
-                    reverseTime = false;
-            }
+                animationTime = _time.PingPong(0, animation.Duration);
             else if (animation.animationType == AnimationType.Loop)
-            {
-                if (time >= animation.Duration)
-                    time = 0;
-            }
+                animationTime = _time.Loop(0, animation.Duration);
+
+            animationTime = Mathf.Clamp(animationTime, 0, animation.Duration);
+
+            return animationTime;
         }
     }
 

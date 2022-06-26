@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace Nash1m.Extensions
 {
     public static class NumericExtensions
@@ -39,6 +41,21 @@ namespace Nash1m.Extensions
                 return 1;
             else
                 return number * Factorial(number - 1);
+        }
+        
+        public static float Loop(this float value, float min, float max)
+        {
+            var range = max - min;
+            var modular = value % range;
+            return min + modular;
+        }
+        public static float PingPong(this float value, float min, float max)
+        {
+            var range = max - min;
+            var count = Mathf.FloorToInt(value / range);
+            var ascending = count % 2 == 0;
+            var modular = value % range;
+            return ascending ? modular + min : max - modular;
         }
     }
 }

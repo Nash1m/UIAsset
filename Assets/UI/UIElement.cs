@@ -1,36 +1,22 @@
 using Nash1m.UI.Animator;
 using UnityEngine;
-using UnityEngine.EventSystems;
 
 namespace Nash1m.UI
 {
-    public class UIElement : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+    public class UIElement : MonoBehaviour
     {
-        private UIAnimator animator;
+        public UIAnimator animator;
 
-        private void Start()
-        {
-            animator ??= GetComponent<UIAnimator>();
-        }
-
-        public void OnPointerEnter(PointerEventData eventData)
-        {
-            animator.Play("Hover");
-            animator.onAnimationEnd = () => animator.Play("Hovering");
-        }
-        public void OnPointerExit(PointerEventData eventData)
-        {
-            animator.Play("Unhover");
-        }
-        
         public void SetActive(bool value)
         {
+            animator ??= GetComponent<UIAnimator>();
+            
             if (animator)
             {
                 if(value)
                 {
-                    gameObject.SetActive(true);
                     animator.Play("Show");
+                    gameObject.SetActive(true);
                 }
                 else
                 {
